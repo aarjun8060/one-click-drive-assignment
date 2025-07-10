@@ -1,40 +1,13 @@
-import { Ratelimit } from "@upstash/ratelimit";
-import { kv } from "@vercel/kv";
 import { RESPONSE_STATUS, RESPONSE_STATUS_CODE } from "@/constants";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { verifyToken } from "@/utils/auth";
 
-// Create Rate limit - 5 requests per 60 seconds
-const ratelimit = new Ratelimit({
-  redis: kv,
-  limiter: Ratelimit.fixedWindow(5, "60s"),
-});
-
 export const GET = async (request: NextRequest) => {
   try {
     const headersList = await headers();
-    if (process.env.NODE_ENV !== "development") {
-      // Apply rate limiting based on the request IP
-      const ip = headersList.get("x-forwarded-for") ?? "anonymous";
-      const { success, limit, reset, remaining } = await ratelimit.limit(ip);
-
-      // Block the request if rate limit exceeded
-      if (!success) {
-        return new Response("Rate limit exceeded. Please try again later.", {
-          status: 429,
-          headers: {
-            "X-RateLimit-Limit": limit.toString(),
-            "X-RateLimit-Remaining": remaining.toString(),
-            "X-RateLimit-Reset": reset.toString(),
-          },
-        });
-      }
-    }
-
     const token = headersList.get("authorization")?.split(" ")[1];
-
     if (!token) {
       return NextResponse.json(
         {
